@@ -1,0 +1,10 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+raisers-edge-data/
+
+**.html
+R/*_files/
+R/*_cache/

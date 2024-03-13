@@ -1,0 +1,157 @@
+---
+title: "playing around!"
+format: html
+editor: visual
+---
+
+## Different potential graphs
+
+```{r loading_things}
+library(here)
+library(fs)
+library(vroom)
+library(ggplot2)
+library(stringr)
+library(dplyr)
+library(janitor)
+library(lubridate)
+library(sf)
+library(PostcodesioR)
+library(tidyr)
+```
+
+```{r read_and_edit_data}
+
+result <- vroom(here("f&c data - edit no.1.CSV"), delim = ",")
+
+result <- clean_names(result)
+
+result[["gift_amount"]] <-
+  str_remove(result$gift_amount, "\xa3") |> 
+  as.numeric()
+
+result <- rename(result, gift_amount_gbp = gift_amount)
+
+result[["gift_date"]] <- dmy(result[["gift_date"]])
+```
+
+```{r gift_line_graph}
+
+financial_year <- function(date){
+  year_year <- year(date)
+  
+  financial_year_start <- ymd(str_c(year_year, "04", "06"))
+  
+  financial_year <-
+    ifelse(date < financial_year_start,
+           year_year - 1,
+           year_year)
+  
+  str_c(financial_year, financial_year + 1, sep = "/")
+  
+}
+#ggplot(result, aes(x = gift_date,
+#                   y = gift_amount_gbp)) +
+  
+  geom_line()
+
+result <- 
+  arrange(result, gift_date) |> 
+  mutate(cum_gift =
+           cumsum(replace_na(gift_amount_gbp, 0)))
+
+ggplot(result, aes(x = gift_date, y = cum_gift)) + 
+  geom_line() +
+  scale_y_continuous(labels = scales::label_number()) +
+  geom_vline(xintercept = ymd("2020/03/31"), 
+             colour = "red") + 
+  geom_smooth(method = "lm")
+
+  mutate(result, year = financial_year(gift_date)) |> 
+  summarise(total_giving = sum(gift_amount_gbp, na.rm = TRUE),
+            .by = year) |> 
+  ggplot(aes(x = year, y = total_giving)) +
+  geom_col(colour = "black", fill = "cyan") +
+    geom_text(aes(label = (total_giving / 1000) |> round(0) |>  str_c("k")),
+              position = position_stack(0.5)) + 
+  theme_minimal() +
+    scale_x_discrete(labels = \(x) str_replace(x, "/", "/\n"))
+```
+
+```{r gender}
+
+ggplot(result, aes(x = gender)) +
+
+geom_bar(stat = "count")
+```
+
+```{r dates}
+
+ggplot(result, aes(x = gift_date)) +
+
+geom_line(stat = "count")
+```
+
+```{r map?}
+
+uk_map <- st_read(result, preferred_postcode)
+
+postcodes_sf <- st_as_sf(preferred_postcodes, coords = c("lon", "lat"), crs = st_crs(uk_map))
+
+ggplot() +
+  geom_sf(data = uk_map) +
+  geom_point(data = postcodes_sf, aes(x = lon, y = lat), color = "red", size = 2) +
+  labs(title = "UK Map with Postcodes")
+
+
+
+
+
+#daves help:
+  library(purrr)
+
+foo <- 
+  map(foo,
+      \(x) pluck(x, "result"))
+
+
+## pull out postcodes from tibble
+## split into list of char. vectors of length <= 100
+## map across list w/ bulk_postcode_lookup
+## map above function across list
+## c() those lists together? / turn each list into a tibble and bind_rows, then
+## join back onto original data
+
+
+
+
+#more of Dave's code
+library(PostcodesioR)
+library(purrr)
+
+postcodes <- str_remove(result$preferred_postcode, " ")
+
+postcodes <- unique(postcodes)
+postcodes <- postcodes[!is.na(postcodes)]
+
+postcode_list <- split(postcodes, ceiling(seq_along(postcodes)/100))
+
+tmp_list <- split(tmp, ceiling(seq_along(tmp)/10))
+
+postcode_result <- lapply(postcode_list, \(x) bulk_postcode_lookup(list(postcodes = x)))
+
+bulk_postcode_lookup(list(postcodes = postcode_list[[1]]))
+
+postcode_result <- lis(postcode_result)
+
+map_chr(postcode_result, \(x){
+       msoa <- pluck(x, "result", "codes", "msoa")
+       ifelse(is.null(msoa), NA, msoa)
+       })
+
+```
+
+```{r first time givers}
+
+
+```
